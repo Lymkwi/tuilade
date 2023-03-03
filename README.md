@@ -12,7 +12,7 @@ In order to do some pre-parsing, use the following one-liner, where `<n>` is the
 number of the targeted workspace:
 
 ```bash
-i3-save-tree --workspace=<n> | sed "s/^\(\s*\)\/\/ \"/\1  \"/" | grep -v "^\s*//" | cargo run | idot
+i3-save-tree --workspace=<n> | sed "s/^\(\s*\)\/\/ \"/\1  \"/" | grep -v "^\s*//" | cargo run | dot -Tpng
 ```
 
 You can then pipe/save the output from `idot` and visualized it however you want.
