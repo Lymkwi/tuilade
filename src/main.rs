@@ -340,7 +340,8 @@ impl Node {
             name = self.name.as_ref()
                 .unwrap_or(&default)
                 .replace('\"', "\\\"")
-                .replace('|', "\\|"),
+                .replace('|', "\\|")
+                .replace('/', "\\/"),
             tree_type = self.tree_type.to_string(),
             floating = self.floating.to_string(),
             border_type = self.border.to_string(),
