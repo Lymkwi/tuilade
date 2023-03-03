@@ -336,7 +336,9 @@ impl Node {
         let default = "(no name)".to_owned();
         let label = format!("{{<NAME>{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
             name = self.name.as_ref()
-                .unwrap_or(&default),
+                .unwrap_or(&default)
+                .replace('\"', "\\\"")
+                .replace('|', "\\|"),
             tree_type = self.tree_type.to_string(),
             floating = self.floating.to_string(),
             border_type = self.border.to_string(),
@@ -369,7 +371,7 @@ impl Node {
             let the_swallows = format!("\tnode_{id}_swallows [shape=record label=\"{{ <HEAD>Swallows | {} }}\"]\n\tnode_{id}:SWALLOWS -> node_{id}_swallows:HEAD",
                 self.swallows.iter()
                     .map(|(key, val)| {
-                        format!("- {key}: \\\"{}\\\"\\l", val.escape_default())
+                        format!("- {key}: \\\"{}\\\"\\l", val)
                     }).collect::<Vec<String>>().join(""));
             node_itself.push_str(&the_swallows);
         }
