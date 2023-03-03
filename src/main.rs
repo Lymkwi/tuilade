@@ -339,8 +339,10 @@ impl Node {
         let label = format!("{{<NAME>{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
             name = self.name.as_ref()
                 .unwrap_or(&default)
+                .replace('\\', "\\\\")
                 .replace('\"', "\\\"")
                 .replace('|', "\\|")
+                .replace('^', "\\^")
                 .replace('/', "\\/"),
             tree_type = self.tree_type.to_string(),
             floating = self.floating.to_string(),
