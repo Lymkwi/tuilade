@@ -8,6 +8,7 @@ mod utils;
 
 enum BorderType {
     Pixel,
+    None
 }
 
 impl TryFrom<&Value> for BorderType {
@@ -16,10 +17,10 @@ impl TryFrom<&Value> for BorderType {
     fn try_from(val: &Value) -> Result<Self, Self::Error> {
         match val {
             Value::String(st) => {
-                if st == "pixel" {
-                    Ok(BorderType::Pixel)
-                } else {
-                    Err(format!("Unknown border type \"{st}\""))
+                match st.as_str() {
+                    "pixel" => Ok(BorderType::Pixel),
+                    "none" => Ok(BorderType::None),
+                    _ => Err(format!("Unknown border type \"{st}\""))
                 }
             }
             _ => Err(String::from("Incompatible JSON value type")),
@@ -31,6 +32,7 @@ impl ToString for BorderType {
     fn to_string(&self) -> String {
         match self {
             BorderType::Pixel => "pixel",
+            BorderType::None => "none"
         }.into()
     }
 }
