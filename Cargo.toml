@@ -2,7 +2,12 @@
 name = "tuilade"
 version = "0.1.0"
 edition = "2021"
-authors = ["Lux Amelia Phifollen"]
+authors = ["Lux Amelia Phifollen", "Lugrim"]
+license = "ACSL"
+repository = "https://github.com/Lymkwi/tuilade"
+keywords = ["i3", "dot", "command-line"]
+categories = ["command-line-tools"]
+description = "A command line utility to parse the output of `i3-save-tree` and create DOT graphs with it"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

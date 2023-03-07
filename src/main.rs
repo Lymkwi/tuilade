@@ -1,5 +1,22 @@
 //! I3 Show Tree
 
+// Make clippy quite nasty
+#![deny(clippy::cargo)] // Checks for garbage in the Cargo TOML files
+#![deny(clippy::complexity)] // Checks for needlessly complex structures
+#![deny(clippy::correctness)] // Checks for common invalid usage and workarounds
+#![deny(clippy::nursery)] // Checks for things that are typically forgotten by learners
+#![deny(clippy::pedantic)] // Checks for mildly annoying comments it could make about your code
+#![deny(clippy::perf)] // Checks for inefficient ways to perform common tasks
+#![deny(clippy::style)] // Checks for inefficient styling of code
+#![deny(clippy::suspicious)] // Checks for potentially malicious behaviour
+// Add some new clippy lints
+#![deny(clippy::use_self)] // Checks for the use of a struct's name in its `impl`
+// Add some default lints
+#![warn(unused_variables)] // Checks for unused variables
+// Deny missing documentation
+#![deny(missing_docs)]
+#![deny(rustdoc::missing_crate_level_docs)]
+
 use serde_derive::Deserialize;
 use serde_json::Value;
 use std::{collections::HashMap, convert::TryFrom, io::prelude::*};
@@ -8,7 +25,7 @@ mod utils;
 
 enum BorderType {
     Pixel,
-    None
+    None,
 }
 
 impl TryFrom<&Value> for BorderType {
@@ -16,13 +33,11 @@ impl TryFrom<&Value> for BorderType {
 
     fn try_from(val: &Value) -> Result<Self, Self::Error> {
         match val {
-            Value::String(st) => {
-                match st.as_str() {
-                    "pixel" => Ok(BorderType::Pixel),
-                    "none" => Ok(BorderType::None),
-                    _ => Err(format!("Unknown border type \"{st}\""))
-                }
-            }
+            Value::String(st) => match st.as_str() {
+                "pixel" => Ok(Self::Pixel),
+                "none" => Ok(Self::None),
+                _ => Err(format!("Unknown border type \"{st}\"")),
+            },
             _ => Err(String::from("Incompatible JSON value type")),
         }
     }
@@ -31,9 +46,10 @@ impl TryFrom<&Value> for BorderType {
 impl ToString for BorderType {
     fn to_string(&self) -> String {
         match self {
-            BorderType::Pixel => "pixel",
-            BorderType::None => "none"
-        }.into()
+            Self::Pixel => "pixel",
+            Self::None => "none",
+        }
+        .into()
     }
 }
 
@@ -49,8 +65,8 @@ impl TryFrom<&Value> for FloatMode {
     fn try_from(val: &Value) -> Result<Self, Self::Error> {
         match val {
             Value::String(st) => match st.as_str() {
-                "auto_off" => Ok(FloatMode::AutoOff),
-                "user_on" => Ok(FloatMode::UserOn),
+                "auto_off" => Ok(Self::AutoOff),
+                "user_on" => Ok(Self::UserOn),
                 _ => Err(format!("Unknown floating type \"{st}\"")),
             },
             _ => Err(String::from("Incompatible JSON value type")),
@@ -61,9 +77,10 @@ impl TryFrom<&Value> for FloatMode {
 impl ToString for FloatMode {
     fn to_string(&self) -> String {
         match self {
-            FloatMode::AutoOff => "Auto Off",
-            FloatMode::UserOn => "User On"
-        }.into()
+            Self::AutoOff => "Auto Off",
+            Self::UserOn => "User On",
+        }
+        .into()
     }
 }
 
@@ -80,10 +97,10 @@ impl TryFrom<&Value> for Layout {
     fn try_from(val: &Value) -> Result<Self, Self::Error> {
         let st = utils::try_string(val)?;
         match st {
-            "tabbed" => Ok(Layout::Tabbed),
-            "splitv" => Ok(Layout::SplitV),
-            "splith" => Ok(Layout::SplitH),
-            "stacked" => Ok(Layout::Stacked),
+            "tabbed" => Ok(Self::Tabbed),
+            "splitv" => Ok(Self::SplitV),
+            "splith" => Ok(Self::SplitH),
+            "stacked" => Ok(Self::Stacked),
             _ => Err(format!("Unknown layout \"{st}\"")),
         }
     }
@@ -96,7 +113,8 @@ impl ToString for Layout {
             Self::SplitV => "splitv",
             Self::SplitH => "splith",
             Self::Stacked => "stacked",
-        }.into()
+        }
+        .into()
     }
 }
 
@@ -107,8 +125,9 @@ enum TreeType {
 impl ToString for TreeType {
     fn to_string(&self) -> String {
         match self {
-            TreeType::Con => "con"
-        }.into()
+            Self::Con => "con",
+        }
+        .into()
     }
 }
 
@@ -118,7 +137,7 @@ impl TryFrom<&Value> for TreeType {
     fn try_from(val: &Value) -> Result<Self, Self::Error> {
         let st = utils::try_string(val)?;
         match st {
-            "con" => Ok(TreeType::Con),
+            "con" => Ok(Self::Con),
             _ => Err(String::from("Unknown tree type \"{st}\"")),
         }
     }
@@ -145,7 +164,7 @@ impl TryFrom<&Value> for TreeGeometry {
             fields.insert(*field, val);
         }
 
-        Ok(TreeGeometry {
+        Ok(Self {
             height: fields["height"],
             width: fields["width"],
             x: fields["x"],
@@ -156,11 +175,12 @@ impl TryFrom<&Value> for TreeGeometry {
 
 impl TreeGeometry {
     fn pretty_print(&self) -> String {
-        format!("Geometry | {{ {{ Width: {width} | Height: {height} }} | {{ X: {x} | Y: {y} }} }}",
-                width=self.width,
-                height=self.height,
-                x=self.x,
-                y=self.y
+        format!(
+            "Geometry | {{ {{ Width: {width} | Height: {height} }} | {{ X: {x} | Y: {y} }} }}",
+            width = self.width,
+            height = self.height,
+            x = self.x,
+            y = self.y
         )
     }
 }
@@ -172,8 +192,8 @@ struct Node {
     marks: Vec<String>,
     percent: f64,
     tree_type: TreeType,
-    current_border_width: Option<usize>,
-    nodes: Vec<Box<Node>>,
+    current_border_width: Option<u64>,
+    nodes: Vec<Self>,
     geometry: Option<TreeGeometry>,
     name: Option<String>,
     swallows: HashMap<String, String>,
@@ -182,14 +202,17 @@ struct Node {
 impl TryFrom<&Value> for Node {
     type Error = String;
 
+    // Reasoning: I know that this function has too many lines but it makes
+    // no sense to split it
+    #[allow(clippy::too_many_lines)]
     fn try_from(val: &Value) -> Result<Self, Self::Error> {
         match val {
             Value::Object(obj) => {
                 // Try and get the fields
-                let border_serialized = obj
-                    .get("border")
-                    .ok_or_else(|| String::from("Missing \"border\" field"))?;
-                let border: BorderType = BorderType::try_from(border_serialized)?;
+                let border = BorderType::try_from(
+                    obj.get("border")
+                        .ok_or_else(|| String::from("Missing \"border\" field"))?,
+                )?;
 
                 let float_serialized = obj
                     .get("floating")
@@ -203,7 +226,7 @@ impl TryFrom<&Value> for Node {
                     Value::Array(proposed_vec) => {
                         /* verify the insides of the vector */
                         proposed_vec
-                            .into_iter()
+                            .iter()
                             .map(|v| match v {
                                 Value::String(st) => Ok(st.clone()),
                                 _ => Err(String::from("Marks contain non-strings")),
@@ -213,12 +236,12 @@ impl TryFrom<&Value> for Node {
                     _ => Err(String::from("Invalid JSON value type for marks")),
                 }?;
 
-                let percent_ser = 
-                    obj.get("percent")
-                        .ok_or_else(|| String::from("Missing \"percent\" field"))?;
+                let percent_ser = obj
+                    .get("percent")
+                    .ok_or_else(|| String::from("Missing \"percent\" field"))?;
                 let percent = match percent_ser {
                     Value::Null => 0.0_f64,
-                    v => utils::try_f64(v)?
+                    v => utils::try_f64(v)?,
                 };
 
                 // Type
@@ -228,11 +251,7 @@ impl TryFrom<&Value> for Node {
                 let tree_type = TreeType::try_from(tree_type_serialized)?;
 
                 // Layout is optional
-                let layout = if let Some(ly) = obj.get("layout") {
-                    Some(Layout::try_from(ly)?)
-                } else {
-                    None
-                };
+                let layout = obj.get("layout").map(Layout::try_from).transpose()?;
 
                 // Name is optional
                 let name = if let Some(v) = obj.get("name") {
@@ -259,12 +278,9 @@ impl TryFrom<&Value> for Node {
                     }
 
                     // Build the children
-                    vec.into_iter()
-                        .map(|i| {
-                            let res = Node::try_from(i)?;
-                            Ok(Box::new(res))
-                        })
-                        .collect::<Result<Vec<Box<Node>>, String>>()?
+                    vec.iter()
+                        .map(Self::try_from)
+                        .collect::<Result<Vec<Self>, String>>()?
                 } else {
                     Vec::new()
                 };
@@ -272,47 +288,52 @@ impl TryFrom<&Value> for Node {
                 // Swallows is optional
                 // But when it's not there, do an empty map
                 let swallows = if let Some(v) = obj.get("swallows") {
-                    if !v.is_array() {
-                        Err(String::from("swallows is non-array"))
-                    } else {
+                    if v.is_array() {
                         let arr = v.as_array().unwrap();
-                        let arr = arr.into_iter()
+                        let arr = arr
+                            .iter()
                             .flat_map(|ent| {
-                                if !ent.is_object() {
-                                    vec![Err(String::from("non-object in swallows"))]
-                                } else {
-                                    ent.as_object().unwrap()
+                                if ent.is_object() {
+                                    ent.as_object()
+                                        .unwrap()
                                         .into_iter()
                                         .map(|(key, val)| {
-                                            if !val.is_string() {
-                                                Err(format!("Key \"{key}\" has non-string value"))
-                                            } else {
+                                            if val.is_string() {
                                                 Ok((key.clone(), val.as_str().unwrap().to_owned()))
+                                            } else {
+                                                Err(format!("Key \"{key}\" has non-string value"))
                                             }
                                         })
                                         .collect::<Vec<Result<(String, String), String>>>()
-                                    }
+                                } else {
+                                    vec![Err(String::from("non-object in swallows"))]
+                                }
                             })
                             .collect::<Result<Vec<(String, String)>, String>>()?;
-                        Ok(arr.into_iter()
-                            .collect::<HashMap<String, String>>())
+                        Ok(arr.into_iter().collect::<HashMap<String, String>>())
+                    } else {
+                        Err(String::from("swallows is non-array"))
                     }
                 } else {
                     Ok(HashMap::new())
                 }?;
 
-                Ok(Node {
+                let current_border_width = obj
+                    .get("current_border_width")
+                    .map(utils::try_u64)
+                    .transpose()?;
+
+                Ok(Self {
                     border,
                     floating,
-                    marks,
                     layout,
+                    marks,
                     percent,
                     tree_type,
-                    name,
-                    geometry,
+                    current_border_width,
                     nodes,
-
-                    current_border_width: None,
+                    geometry,
+                    name,
                     swallows,
                 })
             }
@@ -348,21 +369,18 @@ impl Node {
             floating = self.floating.to_string(),
             border_type = self.border.to_string(),
             percent = self.percent,
-            lygeom = if let Some(ly) = self.layout.as_ref() {
-                format!("<NODES>Layout:\\n{}", ly.to_string())
-            } else {
-                self.geometry.as_ref().unwrap().pretty_print()
-            },
+            lygeom = self.layout.as_ref()
+                .map_or_else(|| self.geometry.as_ref().unwrap().pretty_print(),
+                    |ly| format!("<NODES>Layout:\\n{}", ly.to_string())),
             cbwidth = self.current_border_width
-                .map(|e| format!("{e}"))
-                .unwrap_or("N/A".into()),
-            marks = if self.marks.len() == 0 {
+                .map_or("N/A".into(), |e| format!("{e}")),
+            marks = if self.marks.is_empty() {
                 "No marks".into()
             } else {
                 format!("Marks:\\n{}",
                         self.marks.iter()
                             .map(|i| format!("- \\\"{i}\\\"\\l"))
-                            .collect::<Vec<String>>().join(""))
+                            .collect::<String>())
             },
             swallows = if self.swallows.is_empty() {
                 "No swallows"
@@ -376,18 +394,18 @@ impl Node {
             let the_swallows = format!("\tnode_{id}_swallows [shape=record label=\"{{ <HEAD>Swallows | {} }}\"]\n\tnode_{id}:SWALLOWS -> node_{id}_swallows:HEAD",
                 self.swallows.iter()
                     .map(|(key, val)| {
-                        format!("- {key}: \\\"{}\\\"\\l", val)
-                    }).collect::<Vec<String>>().join(""));
+                        format!("- {key}: \\\"{val}\\\"\\l")
+                    }).collect::<String>());
             node_itself.push_str(&the_swallows);
         }
 
         // Children
         for (pos, child) in self.nodes.iter().enumerate() {
             // Compute the new id
-            let child_id = format!("{}_{}", id, pos);
+            let child_id = format!("{id}_{pos}");
             node_itself.push_str(&child.pretty_print(&child_id));
 
-            node_itself.push_str(&format!("\tnode_{}:NODES -> node_{}:NAME\n", id, child_id));
+            node_itself.push_str(&format!("\tnode_{id}:NODES -> node_{child_id}:NAME\n"));
         }
 
         node_itself
@@ -406,20 +424,17 @@ fn read_input() -> Result<String, String> {
 
 fn main() -> Result<(), String> {
     let code = read_input()?;
-    // Destroy the first two lines
-    if code == "" {
+    if code.is_empty() {
         return Ok(());
     }
 
     println!("digraph tuilade {{");
     println!("\tnode_title[shape=rectangle label = \"Tuilade i3 viewer\"]");
-    let mut root_id = 0;
-    for window in code.trim().split("\n\n") {
+    for (root_id, window) in code.trim().split("\n\n").enumerate() {
         let mp: serde_json::Value =
-            serde_json::from_str(&window).map_err(|e| format!("JSON parse error: \"{e}\""))?;
+            serde_json::from_str(window).map_err(|e| format!("JSON parse error: \"{e}\""))?;
         let mp = Node::try_from(&mp)?;
         println!("{}", mp.pretty_print(&format!("{root_id}")));
-        root_id += 1;
     }
     println!("}}");
     Ok(())
