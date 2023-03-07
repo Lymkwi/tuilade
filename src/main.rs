@@ -357,14 +357,18 @@ impl Node {
 
         // Build the label
         let default = "(no name)".to_owned();
+        let name = self.name.as_ref().unwrap_or(&default);
+        let (all_name, _) = name.split_at(std::cmp::min(50, name.len()));
+
         let label = format!("{{<NAME>{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:3.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
-            name = self.name.as_ref()
-                .unwrap_or(&default)
+            name = all_name
                 .replace('\\', "\\\\")
                 .replace('\"', "\\\"")
                 .replace('|', "\\|")
                 .replace('^', "\\^")
-                .replace('/', "\\/"),
+                .replace('/', "\\/")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;") + if all_name.len() < name.len() { " [...]" } else { "" },
             tree_type = self.tree_type.to_string(),
             floating = self.floating.to_string(),
             border_type = self.border.to_string(),
