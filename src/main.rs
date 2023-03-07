@@ -357,7 +357,7 @@ impl Node {
 
         // Build the label
         let default = "(no name)".to_owned();
-        let label = format!("{{<NAME>{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
+        let label = format!("{{<NAME>{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:3.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
             name = self.name.as_ref()
                 .unwrap_or(&default)
                 .replace('\\', "\\\\")
@@ -368,7 +368,7 @@ impl Node {
             tree_type = self.tree_type.to_string(),
             floating = self.floating.to_string(),
             border_type = self.border.to_string(),
-            percent = self.percent,
+            percent = self.percent * 100_f64,
             lygeom = self.layout.as_ref()
                 .map_or_else(|| self.geometry.as_ref().unwrap().pretty_print(),
                     |ly| format!("<NODES>Layout:\\n{}", ly.to_string())),
