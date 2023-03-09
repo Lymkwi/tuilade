@@ -15,4 +15,6 @@ number of the targeted workspace:
 i3-save-tree --workspace=<n> | sed "s/^\(\s*\)\/\/ \"/\1  \"/" | grep -v "^\s*//" | cargo run | dot -Tpng
 ```
 
-You can then pipe/save the output from `idot` and visualized it however you want.
+Of course, you can change the `-Tpng` to any of the output formats supported by
+`dot`. You can then pipe/save the output from `idot`/`dot` and visualized it
+however you want as well.
