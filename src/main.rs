@@ -20,8 +20,17 @@
 use serde_derive::Deserialize;
 use serde_json::Value;
 use std::{collections::HashMap, convert::TryFrom, io::prelude::*};
+use clap::Parser;
 
 mod utils;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Settings {
+    /// If enabled, will hide empty sections at best
+    #[arg(short, long, default_value_t = false)]
+    pub silent: bool,
+}
 
 enum BorderType {
     Pixel,
@@ -343,7 +352,7 @@ impl TryFrom<&Value> for Node {
 }
 
 impl Node {
-    fn pretty_print(&self, id: &str) -> String {
+    fn pretty_print(&self, id: &str, settings: &Settings) -> String {
         // Ok, start formatting:
         // +-------------------------------------------------------+
         // | <NAME>Name of the Window (truncated of course)        |
@@ -407,7 +416,7 @@ impl Node {
         for (pos, child) in self.nodes.iter().enumerate() {
             // Compute the new id
             let child_id = format!("{id}_{pos}");
-            node_itself.push_str(&child.pretty_print(&child_id));
+            node_itself.push_str(&child.pretty_print(&child_id, settings));
 
             node_itself.push_str(&format!("\tnode_{id}:NODES -> node_{child_id}:NAME\n"));
         }
@@ -427,18 +436,21 @@ fn read_input() -> Result<String, String> {
 }
 
 fn main() -> Result<(), String> {
+    let settings = Settings::parse();
     let code = read_input()?;
     if code.is_empty() {
         return Ok(());
     }
 
     println!("digraph tuilade {{");
-    println!("\tnode_title[shape=rectangle label = \"Tuilade i3 viewer\"]");
+    if ! settings.silent {
+        println!("\tnode_title[shape=rectangle label = \"Tuilade i3 viewer\"]");
+    }
     for (root_id, window) in code.trim().split("\n\n").enumerate() {
         let mp: serde_json::Value =
             serde_json::from_str(window).map_err(|e| format!("JSON parse error: \"{e}\""))?;
         let mp = Node::try_from(&mp)?;
-        println!("{}", mp.pretty_print(&format!("{root_id}")));
+        println!("{}", mp.pretty_print(&format!("{root_id}"), &settings));
     }
     println!("}}");
     Ok(())

@@ -15,3 +15,4 @@ description = "A command line utility to parse the output of `i3-save-tree` and 
 serde_json = "1.0.93"
 serde = "1.0.152"
 serde_derive = "1.0.152"
+clap = { version = "4.1.8", features = ["derive"] }
