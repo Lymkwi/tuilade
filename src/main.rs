@@ -366,11 +366,51 @@ impl Node {
 
         // Build the label
         let default = "(no name)".to_owned();
+
         let name = self.name.as_ref().unwrap_or(&default);
         let (all_name, _) = name.split_at(std::cmp::min(50, name.len()));
 
-        let label = format!("{{<NAME>{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:3.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
+        let label = if settings.silent {
+            format!("{{<NAME>{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% {cbwidth} }} {sm} }} }} }}",
             name = all_name
+                .replace('\\', "\\\\")
+                .replace('\"', "\\\"")
+                .replace('|', "\\|")
+                .replace('^', "\\^")
+                .replace('/', "\\/")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;") + if all_name.len() < name.len() { " [...]" } else { "" },
+            tree_type = self.tree_type.to_string(),
+            floating = self.floating.to_string(),
+            border_type = self.border.to_string(),
+            percent = self.percent * 100_f64,
+            lygeom = self.layout.as_ref()
+                .map_or_else(|| self.geometry.as_ref().unwrap().pretty_print(),
+                    |ly| format!("<NODES>Layout:\\n{}", ly.to_string())),
+            cbwidth = self.current_border_width
+                .map_or(String::new(), |e| format!(" | Border Width:\\n{e}")),
+            sm = if self.swallows.is_empty() {
+                if self.marks.is_empty()  {
+                    String::new()
+                } else {
+                    format!("| {{ Marks:\\n{} }}",
+                        self.marks.iter()
+                            .map(|i| format!("- \\\"{i}\\\"\\l"))
+                            .collect::<String>())
+                }
+            } else if self.marks.is_empty() {
+                    "| {{ <SWALLOWS>Swallows }}".into()
+            } else {
+                format!("| {{ <SWALLOWS>Swallows | Marks:\\n{} }}",
+                    self.marks.iter()
+                        .map(|i| format!("- \\\"{i}\\\"\\l"))
+                        .collect::<String>())
+            }
+        )
+        } else {
+            format!("{{<NAME>{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
+            name = self.name.as_ref()
+                .unwrap_or(&default)
                 .replace('\\', "\\\\")
                 .replace('\"', "\\\"")
                 .replace('|', "\\|")
@@ -400,7 +440,8 @@ impl Node {
             } else {
                 "<SWALLOWS>Swallows"
             }
-        );
+        )
+        };
         let mut node_itself = format!("\tnode_{id} [shape=record label=\"{label}\"]\n");
         if !self.swallows.is_empty() {
             // Build the swallows
