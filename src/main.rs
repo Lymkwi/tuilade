@@ -147,7 +147,7 @@ impl TryFrom<&Value> for TreeType {
         let st = utils::try_string(val)?;
         match st {
             "con" => Ok(Self::Con),
-            _ => Err(String::from("Unknown tree type \"{st}\"")),
+            _ => Err(format!("Unknown tree type \"{st}\"")),
         }
     }
 }
