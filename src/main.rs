@@ -98,6 +98,8 @@ enum Layout {
     SplitV,
     SplitH,
     Stacked,
+    Output,
+    DockArea,
 }
 
 impl TryFrom<&Value> for Layout {
@@ -110,6 +112,8 @@ impl TryFrom<&Value> for Layout {
             "splitv" => Ok(Self::SplitV),
             "splith" => Ok(Self::SplitH),
             "stacked" => Ok(Self::Stacked),
+            "output" => Ok(Self::Output),
+            "dockarea" => Ok(Self::DockArea),
             _ => Err(format!("Unknown layout \"{st}\"")),
         }
     }
@@ -122,19 +126,31 @@ impl ToString for Layout {
             Self::SplitV => "splitv",
             Self::SplitH => "splith",
             Self::Stacked => "stacked",
+            Self::Output => "output",
+            Self::DockArea => "dockarea",
         }
         .into()
     }
 }
 
 enum TreeType {
+    Root,
+    Output,
+    Workspace,
+    DockArea,
     Con,
+    FloatingCon,
 }
 
 impl ToString for TreeType {
     fn to_string(&self) -> String {
         match self {
+            Self::Root => "root",
+            Self::Output => "output",
+            Self::Workspace => "workspace",
+            Self::DockArea => "dockarea",
             Self::Con => "con",
+            Self::FloatingCon => "floating_con",
         }
         .into()
     }
@@ -146,7 +162,12 @@ impl TryFrom<&Value> for TreeType {
     fn try_from(val: &Value) -> Result<Self, Self::Error> {
         let st = utils::try_string(val)?;
         match st {
+            "root" => Ok(Self::Root),
+            "output" => Ok(Self::Output),
+            "workspace" => Ok(Self::Workspace),
+            "dockarea" => Ok(Self::DockArea),
             "con" => Ok(Self::Con),
+            "floating_con" => Ok(Self::FloatingCon),
             _ => Err(format!("Unknown tree type \"{st}\"")),
         }
     }
@@ -201,7 +222,8 @@ struct Node {
     marks: Vec<String>,
     percent: f64,
     tree_type: TreeType,
-    current_border_width: Option<u64>,
+    // Some nodes have a -1 border
+    current_border_width: Option<i64>,
     nodes: Vec<Self>,
     geometry: Option<TreeGeometry>,
     name: Option<String>,
@@ -264,7 +286,9 @@ impl TryFrom<&Value> for Node {
 
                 // Name is optional
                 let name = if let Some(v) = obj.get("name") {
-                    Some(utils::try_string(v)?.to_owned())
+                    // Some(utils::try_string(v)?.to_owned())
+                    // Some Strings are null :(
+                    Some(utils::try_string(v).unwrap_or("(null)").to_owned())
                 } else {
                     None
                 };
@@ -309,8 +333,12 @@ impl TryFrom<&Value> for Node {
                                         .map(|(key, val)| {
                                             if val.is_string() {
                                                 Ok((key.clone(), val.as_str().unwrap().to_owned()))
+                                            } else if val.is_i64() {
+                                                Ok((key.clone(), format!("{}", val.as_i64().unwrap())))
+                                            } else if val.is_f64() {
+                                                Ok((key.clone(), format!("{}", val.as_f64().unwrap())))
                                             } else {
-                                                Err(format!("Key \"{key}\" has non-string value"))
+                                                Err(format!("Key \"{key}\" has non-string or non-number value"))
                                             }
                                         })
                                         .collect::<Vec<Result<(String, String), String>>>()
@@ -329,7 +357,7 @@ impl TryFrom<&Value> for Node {
 
                 let current_border_width = obj
                     .get("current_border_width")
-                    .map(utils::try_u64)
+                    .map(utils::try_i64)
                     .transpose()?;
 
                 Ok(Self {
