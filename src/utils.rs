@@ -23,6 +23,13 @@ pub fn try_f64(val: &Value) -> Result<f64, String> {
     }
 }
 
+pub fn try_bool(val: &Value) -> Result<&bool, String> {
+    match val {
+        Value::Bool(b) => Ok(b),
+        _ => Err(String::from("Invalid JSON Value type (expected boolean)")),
+    }
+}
+
 pub fn try_i64(val: &Value) -> Result<i64, String> {
     let num = try_number(val)?;
     if num.is_i64() {

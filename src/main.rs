@@ -231,6 +231,7 @@ struct Node {
     geometry: Option<TreeGeometry>,
     name: Option<String>,
     swallows: HashMap<String, String>,
+    focused: bool,
 }
 
 impl TryFrom<&Value> for Node {
@@ -363,6 +364,12 @@ impl TryFrom<&Value> for Node {
                     .map(utils::try_i64)
                     .transpose()?;
 
+                let focused = obj
+                    .get("focused")
+                    .map(utils::try_bool)
+                    .transpose()?
+                    .map_or_else(|| false, |&v| v);
+
                 Ok(Self {
                     border,
                     floating,
@@ -375,6 +382,7 @@ impl TryFrom<&Value> for Node {
                     geometry,
                     name,
                     swallows,
+                    focused,
                 })
             }
             _ => Err(String::from("Incompatible JSON value type")),
@@ -383,6 +391,14 @@ impl TryFrom<&Value> for Node {
 }
 
 impl Node {
+    fn has_focus(&self) -> bool {
+        if self.focused {
+            true
+        } else {
+            self.nodes.iter().any(Self::has_focus)
+        }
+    }
+
     fn pretty_print(&self, id: &str, settings: &Settings) -> String {
         // Ok, start formatting:
         // +-------------------------------------------------------+
@@ -423,7 +439,9 @@ impl Node {
         // .split_at(std::cmp::min(50, name.len()));
 
         let label = if settings.silent {
+            format!("{{<NAME>{focus}{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% {cbwidth} }} {sm} }} }} }}",
             name = cut_name,
+            focus = if self.has_focus() {"🔴 "} else {""},
             tree_type = self.tree_type.to_string(),
             floating = self.floating.to_string(),
             border_type = self.border.to_string(),
@@ -452,7 +470,9 @@ impl Node {
             }
         )
         } else {
+            format!("{{<NAME>{focus}{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
             name = cut_name,
+            focus = if self.has_focus() {"🔴 "} else {""},
             tree_type = self.tree_type.to_string(),
             floating = self.floating.to_string(),
             border_type = self.border.to_string(),
