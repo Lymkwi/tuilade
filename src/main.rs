@@ -395,22 +395,35 @@ impl Node {
         // | Border Type          |         |           |          |
         // +--------------------------------+----------------------+
 
+        // Will cut text after this number of characters
+        const CUT_AT: usize = 50;
+
         // Build the label
         let default = "(no name)".to_owned();
 
-        let name = self.name.as_ref().unwrap_or(&default);
-        let (all_name, _) = name.split_at(std::cmp::min(50, name.len()));
+        let name = self.name.as_ref().unwrap_or(&default).chars();
+
+        let cut_name = if name.clone().count() > CUT_AT {
+            name.take(CUT_AT)
+                .map(|c| match c {
+                    '\\' => "\\\\".to_owned(),
+                    '\"' => "\\\"".to_owned(),
+                    '|' => "\\|".to_owned(),
+                    '^' => "\\^".to_owned(),
+                    '/' => "\\/".to_owned(),
+                    '<' => "&lt;".to_owned(),
+                    '>' => "&gt;".to_owned(),
+                    e => e.to_string(),
+                })
+                .collect::<String>()
+                + "..."
+        } else {
+            name.collect::<String>()
+        };
+        // .split_at(std::cmp::min(50, name.len()));
 
         let label = if settings.silent {
-            format!("{{<NAME>{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% {cbwidth} }} {sm} }} }} }}",
-            name = all_name
-                .replace('\\', "\\\\")
-                .replace('\"', "\\\"")
-                .replace('|', "\\|")
-                .replace('^', "\\^")
-                .replace('/', "\\/")
-                .replace('<', "&lt;")
-                .replace('>', "&gt;") + if all_name.len() < name.len() { " [...]" } else { "" },
+            name = cut_name,
             tree_type = self.tree_type.to_string(),
             floating = self.floating.to_string(),
             border_type = self.border.to_string(),
@@ -439,16 +452,7 @@ impl Node {
             }
         )
         } else {
-            format!("{{<NAME>{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
-            name = self.name.as_ref()
-                .unwrap_or(&default)
-                .replace('\\', "\\\\")
-                .replace('\"', "\\\"")
-                .replace('|', "\\|")
-                .replace('^', "\\^")
-                .replace('/', "\\/")
-                .replace('<', "&lt;")
-                .replace('>', "&gt;") + if all_name.len() < name.len() { " [...]" } else { "" },
+            name = cut_name,
             tree_type = self.tree_type.to_string(),
             floating = self.floating.to_string(),
             border_type = self.border.to_string(),
