@@ -29,12 +29,12 @@ cargo install --path .
 
 Then you can create a small script to simplify editing of the command in the
 [Usage](#usage) section, for example in your `.config/i3` directory, possibly
-running `tuilade` in `silent` mode:
+running `tuilade` in `silent` and `no-swallows` mode:
 
 ```sh
 #!/bin/sh
 
-i3-msg -t get_tree | $HOME/.cargo/bin/tuilade -s | dot -Tpng | feh --class fehi3tuilade -
+i3-msg -t get_tree | $HOME/.cargo/bin/tuilade -s -n | dot -Tpng | feh --class fehi3tuilade -
 ```
 
 Finally, you can add a binding to show the tree (in this example, `$mod+t`) and
@@ -53,6 +53,7 @@ Usage: tuilade [OPTIONS]
 
 Options:
   -s, --silent   If enabled, will hide empty sections at best
+  -n, --no-swallows  If enabled, will hide swallows
   -h, --help     Print help
   -V, --version  Print version
 ```

@@ -17,10 +17,10 @@
 #![deny(missing_docs)]
 #![deny(rustdoc::missing_crate_level_docs)]
 
+use clap::Parser;
 use serde_derive::Deserialize;
 use serde_json::Value;
 use std::{collections::HashMap, convert::TryFrom, io::prelude::*};
-use clap::Parser;
 
 mod utils;
 
@@ -30,6 +30,9 @@ struct Settings {
     /// If enabled, will hide empty sections at best
     #[arg(short, long, default_value_t = false)]
     pub silent: bool,
+    /// If enabled, will hide swallows
+    #[arg(short, long, default_value_t = false)]
+    pub no_swallows: bool,
 }
 
 enum BorderType {
@@ -417,7 +420,7 @@ impl Node {
                     |ly| format!("<NODES>Layout:\\n{}", ly.to_string())),
             cbwidth = self.current_border_width
                 .map_or(String::new(), |e| format!(" | Border Width:\\n{e}")),
-            sm = if self.swallows.is_empty() {
+            sm = if self.swallows.is_empty() || settings.no_swallows {
                 if self.marks.is_empty()  {
                     String::new()
                 } else {
@@ -463,7 +466,7 @@ impl Node {
                             .map(|i| format!("- \\\"{i}\\\"\\l"))
                             .collect::<String>())
             },
-            swallows = if self.swallows.is_empty() {
+            swallows = if self.swallows.is_empty() || settings.no_swallows {
                 "No swallows"
             } else {
                 "<SWALLOWS>Swallows"
@@ -471,7 +474,7 @@ impl Node {
         )
         };
         let mut node_itself = format!("\tnode_{id} [shape=record label=\"{label}\"]\n");
-        if !self.swallows.is_empty() {
+        if !(self.swallows.is_empty() || settings.no_swallows) {
             // Build the swallows
             let the_swallows = format!("\tnode_{id}_swallows [shape=record label=\"{{ <HEAD>Swallows | {} }}\"]\n\tnode_{id}:SWALLOWS -> node_{id}_swallows:HEAD",
                 self.swallows.iter()
@@ -512,7 +515,7 @@ fn main() -> Result<(), String> {
     }
 
     println!("digraph tuilade {{");
-    if ! settings.silent {
+    if !settings.silent {
         println!("\tnode_title[shape=rectangle label = \"Tuilade i3 viewer\"]");
     }
     for (root_id, window) in code.trim().split("\n\n").enumerate() {
