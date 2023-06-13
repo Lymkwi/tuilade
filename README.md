@@ -54,6 +54,8 @@ Usage: tuilade [OPTIONS]
 Options:
   -s, --silent   If enabled, will hide empty sections at best
   -n, --no-swallows  If enabled, will hide swallows
+  -e, --expand-from <EXPAND_FROM>  Expand tree from a given level [default: workspace] [possible values: root, output, workspace, dock-area, con, floating-con]
+  -p, --print-parents              Show the parents in the tree
   -h, --help     Print help
   -V, --version  Print version
 ```

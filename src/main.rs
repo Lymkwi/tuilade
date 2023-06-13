@@ -33,6 +33,12 @@ struct Settings {
     /// If enabled, will hide swallows
     #[arg(short, long, default_value_t = false)]
     pub no_swallows: bool,
+    /// Expand tree from a given level
+    #[arg(short, long, default_value_t = TreeType::Workspace)]
+    pub expand_from: TreeType,
+    /// Show the parents in the tree
+    #[arg(short, long, default_value_t = false)]
+    pub print_parents: bool,
 }
 
 enum BorderType {
@@ -57,7 +63,7 @@ impl TryFrom<&Value> for BorderType {
 
 impl ToString for BorderType {
     fn to_string(&self) -> String {
-        match self {
+        match &self {
             Self::Pixel => "pixel",
             Self::None => "none",
         }
@@ -136,6 +142,7 @@ impl ToString for Layout {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, clap::ValueEnum)]
 enum TreeType {
     Root,
     Output,
@@ -159,20 +166,28 @@ impl ToString for TreeType {
     }
 }
 
-impl TryFrom<&Value> for TreeType {
+impl TryFrom<&str> for TreeType {
     type Error = String;
 
-    fn try_from(val: &Value) -> Result<Self, Self::Error> {
-        let st = utils::try_string(val)?;
-        match st {
+    fn try_from(val: &str) -> Result<Self, Self::Error> {
+        match val {
             "root" => Ok(Self::Root),
             "output" => Ok(Self::Output),
             "workspace" => Ok(Self::Workspace),
             "dockarea" => Ok(Self::DockArea),
             "con" => Ok(Self::Con),
             "floating_con" => Ok(Self::FloatingCon),
-            _ => Err(format!("Unknown tree type \"{st}\"")),
+            _ => Err(format!("Unknown tree type \"{val}\"")),
         }
+    }
+}
+
+impl TryFrom<&Value> for TreeType {
+    type Error = String;
+
+    fn try_from(val: &Value) -> Result<Self, Self::Error> {
+        let st = utils::try_string(val)?;
+        Self::try_from(st)
     }
 }
 
@@ -399,7 +414,7 @@ impl Node {
         }
     }
 
-    fn pretty_print(&self, id: &str, settings: &Settings) -> String {
+    fn pretty_print(&self, id: &str, settings: &Settings, print_children: bool) -> String {
         // Ok, start formatting:
         // +-------------------------------------------------------+
         // | <NAME>Name of the Window (truncated of course)        |
@@ -414,32 +429,43 @@ impl Node {
         // Will cut text after this number of characters
         const CUT_AT: usize = 50;
 
-        // Build the label
-        let default = "(no name)".to_owned();
+        let print_children = print_children || self.tree_type == settings.expand_from;
+        let print_self = print_children || settings.print_parents;
 
-        let name = self.name.as_ref().unwrap_or(&default).chars();
-
-        let cut_name = if name.clone().count() > CUT_AT {
-            name.take(CUT_AT)
-                .map(|c| match c {
-                    '\\' => "\\\\".to_owned(),
-                    '\"' => "\\\"".to_owned(),
-                    '|' => "\\|".to_owned(),
-                    '^' => "\\^".to_owned(),
-                    '/' => "\\/".to_owned(),
-                    '<' => "&lt;".to_owned(),
-                    '>' => "&gt;".to_owned(),
-                    e => e.to_string(),
-                })
-                .collect::<String>()
-                + "..."
+        // Children
+        let children: Vec<&Node> = if print_children {
+            self.nodes.iter().collect()
         } else {
-            name.collect::<String>()
+            self.nodes.iter().filter(|&n| n.has_focus()).collect()
         };
-        // .split_at(std::cmp::min(50, name.len()));
 
-        let label = if settings.silent {
-            format!("{{<NAME>{focus}{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% {cbwidth} }} {sm} }} }} }}",
+        if print_self {
+            // Build the label
+            let default = "(no name)".to_owned();
+
+            let name = self.name.as_ref().unwrap_or(&default).chars();
+
+            let cut_name = if name.clone().count() > CUT_AT {
+                name.take(CUT_AT)
+                    .map(|c| match c {
+                        '\\' => "\\\\".to_owned(),
+                        '\"' => "\\\"".to_owned(),
+                        '|' => "\\|".to_owned(),
+                        '^' => "\\^".to_owned(),
+                        '/' => "\\/".to_owned(),
+                        '<' => "&lt;".to_owned(),
+                        '>' => "&gt;".to_owned(),
+                        e => e.to_string(),
+                    })
+                    .collect::<String>()
+                    + "..."
+            } else {
+                name.collect::<String>()
+            };
+            // .split_at(std::cmp::min(50, name.len()));
+
+            let label = if settings.silent {
+                format!("{{<NAME>{focus}{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% {cbwidth} }} {sm} }} }} }}",
             name = cut_name,
             focus = if self.has_focus() {"🔴 "} else {""},
             tree_type = self.tree_type.to_string(),
@@ -469,8 +495,8 @@ impl Node {
                         .collect::<String>())
             }
         )
-        } else {
-            format!("{{<NAME>{focus}{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
+            } else {
+                format!("{{<NAME>{focus}{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
             name = cut_name,
             focus = if self.has_focus() {"🔴 "} else {""},
             tree_type = self.tree_type.to_string(),
@@ -496,28 +522,36 @@ impl Node {
                 "<SWALLOWS>Swallows"
             }
         )
-        };
-        let mut node_itself = format!("\tnode_{id} [shape=record label=\"{label}\"]\n");
-        if !(self.swallows.is_empty() || settings.no_swallows) {
-            // Build the swallows
-            let the_swallows = format!("\tnode_{id}_swallows [shape=record label=\"{{ <HEAD>Swallows | {} }}\"]\n\tnode_{id}:SWALLOWS -> node_{id}_swallows:HEAD",
+            };
+            let mut node_itself = format!("\tnode_{id} [shape=record label=\"{label}\"]\n");
+            if !(self.swallows.is_empty() || settings.no_swallows) {
+                // Build the swallows
+                let the_swallows = format!("\tnode_{id}_swallows [shape=record label=\"{{ <HEAD>Swallows | {} }}\"]\n\tnode_{id}:SWALLOWS -> node_{id}_swallows:HEAD",
                 self.swallows.iter()
                     .map(|(key, val)| {
                         format!("- {key}: \\\"{val}\\\"\\l")
                     }).collect::<String>());
-            node_itself.push_str(&the_swallows);
-        }
+                node_itself.push_str(&the_swallows);
+            }
 
-        // Children
-        for (pos, child) in self.nodes.iter().enumerate() {
+        for (pos, child) in children.iter().enumerate() {
             // Compute the new id
             let child_id = format!("{id}_{pos}");
-            node_itself.push_str(&child.pretty_print(&child_id, settings));
+            node_itself.push_str(&child.pretty_print(&child_id, settings, print_children));
 
             node_itself.push_str(&format!("\tnode_{id}:NODES -> node_{child_id}:NAME\n"));
         }
 
         node_itself
+        } else {
+            let mut node_itself = String::new();
+            for (pos, child) in children.iter().enumerate() {
+                // Compute the new id
+                let child_id = format!("{id}_{pos}");
+                node_itself.push_str(&child.pretty_print(&child_id, settings, print_children));
+            };
+            node_itself
+        }
     }
 }
 
@@ -546,7 +580,14 @@ fn main() -> Result<(), String> {
         let mp: serde_json::Value =
             serde_json::from_str(window).map_err(|e| format!("JSON parse error: \"{e}\""))?;
         let mp = Node::try_from(&mp)?;
-        println!("{}", mp.pretty_print(&format!("{root_id}"), &settings));
+        println!(
+            "{}",
+            mp.pretty_print(
+                &format!("{root_id}"),
+                &settings,
+                &mp.tree_type == &settings.expand_from
+            )
+        );
     }
     println!("}}");
     Ok(())
