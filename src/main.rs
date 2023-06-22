@@ -41,7 +41,9 @@ struct Settings {
     pub print_parents: bool,
 }
 
+#[derive(PartialEq, Eq)]
 enum BorderType {
+    Normal,
     Pixel,
     None,
 }
@@ -54,6 +56,7 @@ impl TryFrom<&Value> for BorderType {
             Value::String(st) => match st.as_str() {
                 "pixel" => Ok(Self::Pixel),
                 "none" => Ok(Self::None),
+                "normal" => Ok(Self::Normal),
                 _ => Err(format!("Unknown border type \"{st}\"")),
             },
             _ => Err(String::from("Incompatible JSON value type")),
@@ -66,6 +69,17 @@ impl ToString for BorderType {
         match &self {
             Self::Pixel => "pixel",
             Self::None => "none",
+            Self::Normal => "normal",
+        }
+        .into()
+    }
+}
+
+impl BorderType {
+    fn unit(&self) -> String {
+        match &self {
+            Self::None => "",
+            _ => "px",
         }
         .into()
     }
@@ -433,7 +447,7 @@ impl Node {
         let print_self = print_children || settings.print_parents;
 
         // Children
-        let children: Vec<&Node> = if print_children {
+        let children: Vec<&Self> = if print_children {
             self.nodes.iter().collect()
         } else {
             self.nodes.iter().filter(|&n| n.has_focus()).collect()
@@ -465,18 +479,28 @@ impl Node {
             // .split_at(std::cmp::min(50, name.len()));
 
             let label = if settings.silent {
-                format!("{{<NAME>{focus}{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% {cbwidth} }} {sm} }} }} }}",
+                format!("{{<NAME>{focus}{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% {cbwidth} }} {sm} }} }} }}",
             name = cut_name,
             focus = if self.has_focus() {"🔴 "} else {""},
             tree_type = self.tree_type.to_string(),
             floating = self.floating.to_string(),
-            border_type = self.border.to_string(),
+            // Occupied Space
             percent = self.percent * 100_f64,
+            // Geometry
             lygeom = self.layout.as_ref()
                 .map_or_else(|| self.geometry.as_ref().unwrap().pretty_print(),
                     |ly| format!("<NODES>Layout:\\n{}", ly.to_string())),
+            // Border Type & Width
             cbwidth = self.current_border_width
-                .map_or(String::new(), |e| format!(" | Border Width:\\n{e}")),
+                .map_or_else(String::new, |w|
+                             if w > 0 || self.border == BorderType::Normal {
+                                 format!(" | Border:{t}{v}{u}",
+                                         t = if self.border == BorderType::Normal { "\\nTitle" } else { "" },
+                                         v = if w > 0 { "\\n".to_string() + &w.to_string() } else { String::new() },
+                                         u = if w > 0 { self.border.unit() } else { String::new() })
+                             } else {
+                                 String::new()
+                             }),
             sm = if self.swallows.is_empty() || settings.no_swallows {
                 if self.marks.is_empty()  {
                     String::new()
@@ -496,7 +520,7 @@ impl Node {
             }
         )
             } else {
-                format!("{{<NAME>{focus}{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} | {marks} }} }} }} }}",
+                format!("{{<NAME>{focus}{name}|{{ {{ {{ Tree Type:\\n{tree_type} | Floating:\\n{floating} }} | Border Type:\\n{border_type} | {lygeom} }}| {{ {{ Percent:\\n{percent:0.3}% | Border Width:\\n{cbwidth} }} | {{ {swallows} {marks} }} }} }} }}",
             name = cut_name,
             focus = if self.has_focus() {"🔴 "} else {""},
             tree_type = self.tree_type.to_string(),
@@ -517,9 +541,9 @@ impl Node {
                             .collect::<String>())
             },
             swallows = if self.swallows.is_empty() || settings.no_swallows {
-                "No swallows"
+                ""
             } else {
-                "<SWALLOWS>Swallows"
+                "<SWALLOWS>Swallows | "
             }
         )
             };
@@ -534,22 +558,22 @@ impl Node {
                 node_itself.push_str(&the_swallows);
             }
 
-        for (pos, child) in children.iter().enumerate() {
-            // Compute the new id
-            let child_id = format!("{id}_{pos}");
-            node_itself.push_str(&child.pretty_print(&child_id, settings, print_children));
+            for (pos, child) in children.iter().enumerate() {
+                // Compute the new id
+                let child_id = format!("{id}_{pos}");
+                node_itself.push_str(&child.pretty_print(&child_id, settings, print_children));
 
-            node_itself.push_str(&format!("\tnode_{id}:NODES -> node_{child_id}:NAME\n"));
-        }
+                node_itself.push_str(&format!("\tnode_{id}:NODES -> node_{child_id}:NAME\n"));
+            }
 
-        node_itself
+            node_itself
         } else {
             let mut node_itself = String::new();
             for (pos, child) in children.iter().enumerate() {
                 // Compute the new id
                 let child_id = format!("{id}_{pos}");
                 node_itself.push_str(&child.pretty_print(&child_id, settings, print_children));
-            };
+            }
             node_itself
         }
     }
@@ -585,7 +609,7 @@ fn main() -> Result<(), String> {
             mp.pretty_print(
                 &format!("{root_id}"),
                 &settings,
-                &mp.tree_type == &settings.expand_from
+                mp.tree_type == settings.expand_from
             )
         );
     }
