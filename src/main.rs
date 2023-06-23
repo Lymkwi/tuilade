@@ -87,8 +87,10 @@ impl BorderType {
 
 #[derive(Deserialize)]
 enum FloatMode {
-    AutoOff,
+    AutoOn,
     UserOn,
+    AutoOff,
+    UserOff,
 }
 
 impl TryFrom<&Value> for FloatMode {
@@ -98,7 +100,9 @@ impl TryFrom<&Value> for FloatMode {
         match val {
             Value::String(st) => match st.as_str() {
                 "auto_off" => Ok(Self::AutoOff),
+                "auto_on" => Ok(Self::AutoOn),
                 "user_on" => Ok(Self::UserOn),
+                "user_off" => Ok(Self::UserOff),
                 _ => Err(format!("Unknown floating type \"{st}\"")),
             },
             _ => Err(String::from("Incompatible JSON value type")),
@@ -110,7 +114,9 @@ impl ToString for FloatMode {
     fn to_string(&self) -> String {
         match self {
             Self::AutoOff => "Auto Off",
+            Self::AutoOn => "Auto On",
             Self::UserOn => "User On",
+            Self::UserOff => "User Off",
         }
         .into()
     }
